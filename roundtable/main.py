@@ -488,13 +488,53 @@ config_settings_cache = {}
 # Main
 # ---------------------------------------------------------------------------
 
+def run_notify(targets: list[str], message: str):
+    """Send a one-way notification to specified participants."""
+    config = load_config()
+    participants = config["participants"]
+    settings = config.get("settings", {})
+    desktop = Desktop(backend="uia")
+
+    all_names = list(participants.keys())
+    if not targets:
+        targets = [n for n, p in participants.items() if p.get("driver") == "ide"]
+
+    for name in targets:
+        if name not in participants:
+            log(f"[{name}] 未找到该参与者，跳过")
+            continue
+        cfg = participants[name]
+        driver = cfg.get("driver")
+
+        if driver == "ide":
+            notify_ide(desktop, name, cfg, message)
+        elif driver == "doubao":
+            doubao_cfg = {**settings, **cfg}
+            send_doubao_no_wait(message, doubao_cfg)
+        else:
+            log(f"[{name}] driver={driver}，不支持通知，跳过")
+
+        time.sleep(3)
+
+    log("通知发送完毕。")
+
+
 def main():
     global config_settings_cache
 
     parser = argparse.ArgumentParser(description="圆桌自动化")
     parser.add_argument("--round", type=int, default=None, help="轮次编号")
     parser.add_argument("--turn", type=int, default=0, help="从第几个turn开始")
+    parser.add_argument("--notify", type=str, default=None,
+                        help="单向通知模式：发送消息给指定参与者")
+    parser.add_argument("--to", type=str, default=None,
+                        help="通知目标，逗号分隔（默认所有IDE参与者）。如：衡,问")
     args = parser.parse_args()
+
+    if args.notify:
+        targets = [t.strip() for t in args.to.split(",")] if args.to else []
+        run_notify(targets, args.notify)
+        return
 
     config = load_config()
     settings = config.get("settings", {})
