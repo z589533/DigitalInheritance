@@ -19,6 +19,8 @@ SELECTORS = {
 
 
 class DouBaoDriver(BaseDriver):
+    CHAT_HINT = "（请直接在对话中回答，不要生成文档或文章卡片。）"
+
     def __init__(self, name: str, config: dict):
         super().__init__(name, config)
         self.url = config.get("url", "https://www.doubao.com/chat/")
@@ -26,6 +28,7 @@ class DouBaoDriver(BaseDriver):
         self._context: BrowserContext | None = None
         self._page: Page | None = None
         self._message_count_before = 0
+        self._sent_this_round = False
 
     def initialize(self):
         self._pw = sync_playwright().start()
@@ -152,13 +155,40 @@ class DouBaoDriver(BaseDriver):
                     return True
             except Exception:
                 continue
-        # Also check if the last message text is still changing
         return False
+
+    def _detect_article_mode(self) -> bool:
+        """Detect if Doubao switched to article/document mode.
+        Article mode is fine — copy button still works. Only used for logging.
+        """
+        try:
+            switch_btn = self._page.get_by_text("改用对话直接回答")
+            if switch_btn.first.is_visible(timeout=1000):
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _is_page_alive(self) -> bool:
+        """Check if the browser page is still alive."""
+        try:
+            self._page.evaluate("1")
+            return True
+        except Exception:
+            return False
 
     def send_message(self, text: str) -> bool:
         if self.mode == DriverMode.MANUAL:
             self.manual_send(text)
             return True
+
+        if self._sent_this_round:
+            print(f"  [{self.name}] 本轮已发送过，跳过重复发送", flush=True)
+            return True
+
+        if not self._is_page_alive():
+            print(f"  [{self.name}] 浏览器已关闭，无法发送", flush=True)
+            return False
 
         try:
             self._message_count_before = self._count_messages()
@@ -175,19 +205,18 @@ class DouBaoDriver(BaseDriver):
 
             self._enable_thinking_mode()
 
-            # Re-focus input after mode switch (dropdown may steal focus)
             input_el = self._find_input()
             if input_el:
                 input_el.click()
                 self._page.wait_for_timeout(300)
 
+            full_text = text + "\n\n" + self.CHAT_HINT
             import pyperclip
-            pyperclip.copy(text)
+            pyperclip.copy(full_text)
             self._page.keyboard.press("Control+a")
             self._page.keyboard.press("Control+v")
             self._page.wait_for_timeout(500)
 
-            # Try pressing Enter or clicking send button
             sent = False
             for selector in SELECTORS["send_button"].split(", "):
                 try:
@@ -204,6 +233,7 @@ class DouBaoDriver(BaseDriver):
 
             self._page.wait_for_timeout(1000)
             self._check_captcha()
+            self._sent_this_round = True
             print(f"  [{self.name}] 消息已发送")
             return True
 
@@ -215,21 +245,56 @@ class DouBaoDriver(BaseDriver):
                 self.manual_send(text)
             return False
 
+    def reset_send_flag(self):
+        """Call before each new round to allow sending again."""
+        self._sent_this_round = False
+
+    def _new_msg_has_action_buttons(self) -> bool:
+        """Check if the NEWEST receive_message (by index) has action buttons.
+        Only checks the message at the position AFTER _message_count_before,
+        so it won't be fooled by old messages' buttons.
+        """
+        try:
+            all_recv = self._page.locator(SELECTORS["receive_message"])
+            total = all_recv.count()
+            if total <= self._message_count_before:
+                return False
+            new_msg = all_recv.nth(total - 1)
+            for sel in ['[data-testid="message_action_copy"]',
+                        '[data-testid*="message_action"]']:
+                try:
+                    btn = new_msg.locator(sel).first
+                    if btn.is_visible(timeout=300):
+                        return True
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return False
+
     def wait_for_response(self, timeout: int = 180) -> bool:
+        """Wait for Doubao to finish responding.
+        Simple strategy: wait for text to stay unchanged for 15 seconds.
+        """
         if self.mode == DriverMode.MANUAL:
             return True
 
         try:
-            self._page.wait_for_timeout(3000)
+            self._page.wait_for_timeout(5000)
             last_text = ""
             stable_count = 0
+            STABLE_NEEDED = 5
 
             start = time.time()
             while time.time() - start < timeout:
+                if not self._is_page_alive():
+                    print(f"  [{self.name}] 浏览器已关闭", flush=True)
+                    return False
+
                 self._check_captcha()
+
                 new_count = self._count_messages()
                 if new_count > self._message_count_before:
-                    # Message appeared, now wait for it to stabilize
                     recv = self._page.locator(SELECTORS["receive_message"]).last
                     try:
                         current_text = recv.inner_text()
@@ -238,12 +303,17 @@ class DouBaoDriver(BaseDriver):
 
                     if current_text == last_text and current_text:
                         stable_count += 1
-                        if stable_count >= 2:
-                            print(f"  [{self.name}] 回应完成")
+                        if stable_count >= STABLE_NEEDED:
+                            elapsed = int(time.time() - start)
+                            print(f"  [{self.name}] 回应完成（文本稳定 15s，共 {elapsed}s）")
                             return True
                     else:
                         stable_count = 0
                         last_text = current_text
+
+                elapsed = int(time.time() - start)
+                if elapsed % 30 == 0 and elapsed > 0:
+                    print(f"  [{self.name}] 等待中... ({elapsed}s)", flush=True)
 
                 self._page.wait_for_timeout(3000)
 
@@ -255,20 +325,24 @@ class DouBaoDriver(BaseDriver):
             print(f"  [{self.name}] 等待出错: {e}")
             return True
 
-    _THINKING_TRACE_KEYWORDS = ["跳过", "规划", "策略", "用户要求", "我需要"]
+    _THINKING_TRACE_KEYWORDS = ["跳过", "规划", "策略", "用户要求", "我需要",
+                                "分析", "回顾", "梳理", "总结一下"]
 
     def _is_thinking_trace(self, text: str) -> bool:
         """Detect if extracted text is a thinking trace rather than a real response."""
         if not text:
             return True
         stripped = text.strip()
+        if len(stripped) < 20:
+            return True
         if len(stripped) < 120:
             hits = sum(1 for kw in self._THINKING_TRACE_KEYWORDS if kw in stripped)
-            if hits >= 2:
+            if hits >= 1:
                 return True
         first_line = stripped.split("\n")[0]
         if len(first_line) > 10 and all(
-            kw not in first_line for kw in ["#", "**", "对", "关于", "回应", "我"]
+            kw not in first_line for kw in ["#", "**", "对", "关于", "回应", "我",
+                                            "豆包", "看完", "这", "结合", "针对"]
         ):
             hits = sum(1 for kw in self._THINKING_TRACE_KEYWORDS if kw in first_line)
             if hits >= 1 and len(stripped) < 200:
@@ -276,20 +350,10 @@ class DouBaoDriver(BaseDriver):
         return False
 
     def _extract_text_from_msg(self, msg) -> str | None:
-        """Extract response text from a message element, skipping thinking blocks."""
-        # Skip collapsed thinking/reasoning blocks
-        thinking_selectors = [
-            '[class*="thinking"]', '[class*="reason"]',
-            '[data-testid*="think"]', '[class*="collapse"]',
-        ]
-        for sel in thinking_selectors:
-            try:
-                for el in msg.locator(sel).all():
-                    el.evaluate("e => e.style.display = 'none'")
-            except Exception:
-                pass
-
-        # Try markdown body (outside thinking blocks)
+        """Extract response text from a message element, skipping thinking blocks.
+        Does NOT modify DOM (no display:none) to avoid page jitter.
+        """
+        # Try markdown body first (most likely contains the real response)
         md = msg.locator('[class*="flow-markdown-body"]')
         if md.count() > 0:
             text = md.last.inner_text()
@@ -303,59 +367,84 @@ class DouBaoDriver(BaseDriver):
             if text and text.strip() and not self._is_thinking_trace(text.strip()):
                 return text.strip()
 
-        # Fallback: full inner_text
-        text = msg.inner_text()
-        if text and text.strip() and not self._is_thinking_trace(text.strip()):
-            return text.strip()
         return None
 
     def _copy_button_extract(self) -> str | None:
-        """Use the copy button to extract response via clipboard."""
+        """Use the copy button on the LAST receive_message to extract via clipboard.
+        Sets a sentinel in clipboard first to verify the copy actually worked.
+        """
+        import pyperclip
+        sentinel = "__doubao_copy_sentinel__"
         try:
-            copy_btn = self._page.locator('[data-testid="message_action_copy"]').last
+            all_recv = self._page.locator(SELECTORS["receive_message"])
+            total = all_recv.count()
+            if total == 0:
+                return None
+            last_msg = all_recv.nth(total - 1)
+
+            last_msg.hover(timeout=2000)
+            self._page.wait_for_timeout(800)
+
+            copy_btn = last_msg.locator('[data-testid="message_action_copy"]').first
+            if not copy_btn.is_visible(timeout=2000):
+                copy_btn = last_msg.locator('[data-testid*="message_action"]').first
+
             if copy_btn.is_visible(timeout=1000):
-                copy_btn.click()
-                self._page.wait_for_timeout(500)
-                import pyperclip
+                pyperclip.copy(sentinel)
+                copy_btn.click(force=True)
+                self._page.wait_for_timeout(800)
                 text = pyperclip.paste()
-                if text and text.strip():
+                if text and text != sentinel and text.strip():
                     return text.strip()
-        except Exception:
-            pass
+                print(f"  [{self.name}] 复制按钮点击后剪贴板未更新", flush=True)
+        except Exception as e:
+            print(f"  [{self.name}] copy_button_extract 异常: {e}", flush=True)
         return None
 
     def get_response(self) -> str | None:
         if self.mode in (DriverMode.MANUAL, DriverMode.SEND_ONLY):
             return self.manual_collect()
 
-        try:
-            recv_msgs = self._page.locator(SELECTORS["receive_message"]).all()
-            if recv_msgs:
-                last_msg = recv_msgs[-1]
-                text = self._extract_text_from_msg(last_msg)
-                if text:
+        if not self._is_page_alive():
+            print(f"  [{self.name}] 浏览器已关闭，无法提取", flush=True)
+            return None
+
+        for attempt in range(3):
+            try:
+                text = self._copy_button_extract()
+                if text and not self._is_thinking_trace(text):
                     return text
 
-            # Fallback: last markdown body on page
-            md_els = self._page.locator(SELECTORS["markdown_body"]).all()
-            if md_els:
-                text = md_els[-1].inner_text()
-                if text and text.strip() and not self._is_thinking_trace(text.strip()):
-                    return text.strip()
+                recv_msgs = self._page.locator(SELECTORS["receive_message"]).all()
+                if recv_msgs:
+                    last_msg = recv_msgs[-1]
+                    text = self._extract_text_from_msg(last_msg)
+                    if text:
+                        return text
 
-            # Fallback: copy button
-            text = self._copy_button_extract()
-            if text and not self._is_thinking_trace(text):
-                return text
+                md_els = self._page.locator(SELECTORS["markdown_body"]).all()
+                if md_els:
+                    text = md_els[-1].inner_text()
+                    if text and text.strip() and not self._is_thinking_trace(text.strip()):
+                        return text.strip()
 
-            print(f"  [{self.name}] 无法自动提取回应，请手动复制")
-            self.downgrade_mode()
-            return self.manual_collect()
+                if attempt < 2:
+                    wait_s = (attempt + 1) * 5
+                    print(f"  [{self.name}] 提取未成功，等待 {wait_s}s 重试 ({attempt+1}/3)...",
+                          flush=True)
+                    self._page.wait_for_timeout(wait_s * 1000)
 
-        except Exception as e:
-            self._last_error = str(e)
-            print(f"  [{self.name}] 提取回应失败: {e}")
-            return self.manual_collect()
+            except Exception as e:
+                self._last_error = str(e)
+                print(f"  [{self.name}] 提取回应失败: {e}")
+                if not self._is_page_alive():
+                    print(f"  [{self.name}] 浏览器已关闭", flush=True)
+                    return None
+                if attempt < 2:
+                    self._page.wait_for_timeout(3000)
+
+        print(f"  [{self.name}] 多次提取失败，标记为 extraction_error")
+        return None
 
     def cleanup(self):
         try:

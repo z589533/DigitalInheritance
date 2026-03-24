@@ -31,7 +31,9 @@ settings:
   poll_interval: 15
   auto_git_push: true
   default_order: ["默", "衡", "豆包", "问"]
+  rotate_order: true
   standard_turns: 2
   doubao_compress_after_turn: 1
   allow_silence_declaration: true
   silence_keywords: ["没有需要发言", "没有新的补充", "这轮跳过"]
+  topic_proposals_dir: "roundtable_meetings/topic_proposals"

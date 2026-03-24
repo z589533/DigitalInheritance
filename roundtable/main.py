@@ -31,7 +31,9 @@
 import os
 import sys
 import time
+import json
 import argparse
+from datetime import datetime
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
@@ -51,12 +53,68 @@ SILENCE_KEYWORDS_DEFAULT = ["没有需要发言", "没有新的补充", "这轮�
 
 
 # ---------------------------------------------------------------------------
+# Response status tracking
+# ---------------------------------------------------------------------------
+
+RESPONSE_STATUS = {}
+
+def set_response_status(name: str, turn: int, status: str, char_count: int = 0):
+    """Record response status: ok / extraction_error / timeout / missing / silence."""
+    key = f"{name}_turn{turn:02d}"
+    RESPONSE_STATUS[key] = {
+        "name": name, "turn": turn, "status": status,
+        "chars": char_count, "time": datetime.now().isoformat(),
+    }
+
+def save_response_status(round_dir: str):
+    """Write response_status.json to the round directory."""
+    path = os.path.join(round_dir, "response_status.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(RESPONSE_STATUS, f, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Operation log
+# ---------------------------------------------------------------------------
+
+RUN_LOG_LINES = []
+
+def log(msg: str):
+    """Append a timestamped line to the operation log and print it."""
+    ts = datetime.now().strftime("%H:%M:%S")
+    line = f"[{ts}] {msg}"
+    RUN_LOG_LINES.append(line)
+    print(line, flush=True)
+
+def save_run_log(round_dir: str, turn: int):
+    """Write run_log_NN.md to the round directory."""
+    path = os.path.join(round_dir, f"run_log_{turn:02d}.md")
+    header = f"# 操作日志 — Turn {turn:02d}\n*{datetime.now().isoformat()}*\n\n"
+    body = "\n".join(RUN_LOG_LINES)
+
+    status_summary = "\n\n## 回应状态\n\n| 参与者 | Turn | 状态 | 字数 |\n|--------|------|------|------|\n"
+    for entry in RESPONSE_STATUS.values():
+        status_summary += f"| {entry['name']} | {entry['turn']:02d} | {entry['status']} | {entry['chars']} |\n"
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(header + body + status_summary)
+
+
+# ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 
 def load_config():
     with open(os.path.join(SCRIPT_DIR, "config.yaml"), encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def rotated_order(order: list[str], round_num: int) -> list[str]:
+    """Rotate participant order by round number so no one is always last."""
+    if not order:
+        return order
+    shift = (round_num - 1) % len(order)
+    return order[shift:] + order[:shift]
 
 
 # ---------------------------------------------------------------------------
@@ -143,10 +201,10 @@ def notify_ide(desktop, name: str, cfg: dict, message: str):
             time.sleep(0.5)
             pyautogui.press("enter")
             time.sleep(0.5)
-            print(f"  [{name}] 通知已发送", flush=True)
+            log(f"[{name}] 通知已发送")
             return True
 
-    print(f"  [{name}] 未找到窗口 (keyword='{keyword}')", flush=True)
+    log(f"[{name}] 未找到窗口 (keyword='{keyword}')")
     return False
 
 
@@ -162,26 +220,36 @@ def notify_all_ide(desktop, participants: dict, message: str, delay: float = 3.0
 # Doubao send/receive
 # ---------------------------------------------------------------------------
 
-def send_to_doubao(topic_text: str, doubao_cfg: dict) -> str | None:
-    """Send message to Doubao, wait for response, return text."""
+def send_to_doubao(topic_text: str, doubao_cfg: dict,
+                    turn: int = -1) -> tuple[str | None, str]:
+    """Send message to Doubao, wait for response.
+    Returns (response_text, status) where status is 'ok' / 'extraction_error' / 'send_failed'.
+    """
     from drivers.doubao import DouBaoDriver
     d = DouBaoDriver("豆包", doubao_cfg)
     d.initialize()
     ok = d.send_message(topic_text)
-    print(f"  [豆包] 发送: {'成功' if ok else '失败'}", flush=True)
+    log(f"[豆包] 发送: {'成功' if ok else '失败'}")
 
     resp = None
+    status = "send_failed"
     if ok:
-        print("  [豆包] 等待回应...", flush=True)
+        log("[豆包] 等待回应...")
         d.wait_for_response(timeout=180)
         resp = d.get_response()
         if resp:
-            print(f"  [豆包] 收到回应（{len(resp)}字）", flush=True)
+            log(f"[豆包] 收到回应（{len(resp)}字）")
+            status = "ok"
+            set_response_status("豆包", turn, "ok", len(resp))
         else:
-            print("  [豆包] 未获取到回应", flush=True)
+            log("[豆包] 未获取到回应（extraction_error）")
+            status = "extraction_error"
+            set_response_status("豆包", turn, "extraction_error", 0)
+    else:
+        set_response_status("豆包", turn, "send_failed", 0)
 
     d.cleanup()
-    return resp
+    return resp, status
 
 
 def send_doubao_no_wait(text: str, doubao_cfg: dict):
@@ -190,8 +258,25 @@ def send_doubao_no_wait(text: str, doubao_cfg: dict):
     d = DouBaoDriver("豆包", doubao_cfg)
     d.initialize()
     ok = d.send_message(text)
-    print(f"  [豆包] 发送: {'成功' if ok else '失败'}", flush=True)
+    log(f"[豆包] 发送（无等待）: {'成功' if ok else '失败'}")
     d.cleanup()
+
+
+# ---------------------------------------------------------------------------
+# Doubao confirmation prefix
+# ---------------------------------------------------------------------------
+
+_doubao_last_status = {"turn": -1, "status": "none", "chars": 0}
+
+def _doubao_confirm_prefix() -> str:
+    """Build a confirmation prefix for Doubao based on last response status."""
+    s = _doubao_last_status
+    if s["status"] == "ok":
+        return f"【确认】你上一轮（Turn {s['turn']:02d}）的回应已完整记录，共 {s['chars']} 字。如有遗漏请告知。\n\n"
+    if s["status"] == "extraction_error":
+        return (f"【注意】你上一轮（Turn {s['turn']:02d}）的回应提取失败，"
+                "系统未能记录你的完整发言。如果你还记得要点，可以在这轮补充。\n\n")
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +289,7 @@ def poll_git_responses(repo_root: str, round_dir: str, names: list[str],
     """Poll git for response files. Returns dict of {name: text}.
     Silence declarations are collected as valid responses.
     """
-    print(f"\n等待回应 (turn {turn:02d})，每 {interval}s 拉取，{timeout}s 超时...", flush=True)
+    log(f"等待回应 (turn {turn:02d})，每 {interval}s 拉取，{timeout}s 超时...")
     start = time.time()
     collected = {}
 
@@ -215,13 +300,15 @@ def poll_git_responses(repo_root: str, round_dir: str, names: list[str],
                 resp = read_response_file(round_dir, name, turn)
                 if resp:
                     if is_silence_declaration(resp, silence_keywords):
-                        print(f"  [{name}] 沉默声明（本轮不发言）", flush=True)
+                        log(f"[{name}] 沉默声明（本轮不发言）")
+                        set_response_status(name, turn, "silence", len(resp))
                     else:
-                        print(f"  [{name}] 回应已到（{len(resp)}字）", flush=True)
+                        log(f"[{name}] 回应已到（{len(resp)}字）")
+                        set_response_status(name, turn, "ok", len(resp))
                     collected[name] = resp
 
         if len(collected) == len(names):
-            print("所有回应已收齐！", flush=True)
+            log("所有回应已收齐！")
             return collected
 
         elapsed = int(time.time() - start)
@@ -231,7 +318,9 @@ def poll_git_responses(repo_root: str, round_dir: str, names: list[str],
 
     missing = [n for n in names if n not in collected]
     if missing:
-        print(f"\n超时，未收到: {missing}", flush=True)
+        log(f"超时，未收到: {missing}")
+        for name in missing:
+            set_response_status(name, turn, "timeout", 0)
     return collected
 
 
@@ -288,37 +377,41 @@ def run_extra_turn(turn: int, round_num: int, round_dir: str, rounds_dir: str,
                    repo_root: str, desktop, participants: dict,
                    doubao_cfg: dict, has_doubao: bool, settings: dict):
     """Execute a single extra turn (turn >= 2)."""
-    print(f"\n>>> TURN {turn:02d}: 追加轮 <<<\n", flush=True)
+    log(f">>> TURN {turn:02d}: 追加轮 <<<")
 
     ide_names = [n for n, p in participants.items() if p.get("driver") == "ide"]
     silence_kw = settings.get("silence_keywords", SILENCE_KEYWORDS_DEFAULT)
     compress_after = settings.get("doubao_compress_after_turn", 1)
 
-    # 默's response should already exist (or be a silence declaration)
     mo_file = os.path.join(round_dir, f"response_默_{turn:02d}.md")
     if not os.path.exists(mo_file):
-        print(f"请先写好 {mo_file}（没有想说的就写'这轮我没有需要发言的地方'），然后继续。",
-              flush=True)
+        log(f"请先写好 {mo_file}（没有想说的就写'这轮我没有需要发言的地方'），然后继续。")
         return False
 
-    # Git push 默's response
+    mo_text = open(mo_file, encoding="utf-8").read()
+    if is_silence_declaration(mo_text, silence_kw):
+        set_response_status("默", turn, "silence", len(mo_text))
+    else:
+        set_response_status("默", turn, "ok", len(mo_text))
+
     round_path = rounds_dir + f"/round_{round_num:03d}/"
     git_add_commit_push(repo_root, [round_path],
                         f"round{round_num} turn{turn:02d}: mo response")
 
-    # Notify IDE
     notify_msg = make_notify_msg_extra_turn(round_num, turn, rounds_dir)
-    print(f"--- 通知衡/问 turn {turn:02d} ---", flush=True)
+    log(f"--- 通知衡/问 turn {turn:02d} ---")
     notify_all_ide(desktop, participants, notify_msg)
 
-    # Send to Doubao (compressed)
     if has_doubao:
-        print(f"\n--- 发给豆包 turn {turn:02d} ---", flush=True)
+        log(f"--- 发给豆包 turn {turn:02d} ---")
         prev_summary = os.path.join(round_dir, f"summary_{turn - 1:02d}.md")
         doubao_input = get_doubao_input(round_dir, prev_summary, turn, compress_after)
         if doubao_input:
-            prompt = doubao_input + "\n\n" + make_doubao_extra_turn_prompt(turn)
-            resp = send_to_doubao(prompt, doubao_cfg)
+            confirm = _doubao_confirm_prefix()
+            prompt = confirm + doubao_input + "\n\n" + make_doubao_extra_turn_prompt(turn)
+            resp, status = send_to_doubao(prompt, doubao_cfg, turn=turn)
+            _doubao_last_status.update({"turn": turn, "status": status,
+                                         "chars": len(resp) if resp else 0})
             if resp:
                 out = os.path.join(round_dir, f"response_豆包_{turn:02d}.md")
                 with open(out, "w", encoding="utf-8") as f:
@@ -326,14 +419,15 @@ def run_extra_turn(turn: int, round_num: int, round_dir: str, rounds_dir: str,
                 git_add_commit_push(repo_root, [round_path],
                                     f"round{round_num} turn{turn:02d}: doubao response")
 
-    # Poll for IDE responses
-    print(f"\n--- 等待衡/问 turn {turn:02d} ---", flush=True)
+    log(f"--- 等待衡/问 turn {turn:02d} ---")
     poll_git_responses(repo_root, round_dir, ide_names, turn=turn,
                        timeout=settings.get("response_timeout", 300),
                        interval=settings.get("poll_interval", 15),
                        silence_keywords=silence_kw)
 
-    print(f"\n>>> TURN {turn:02d} 收集完毕 <<<", flush=True)
+    save_response_status(round_dir)
+    save_run_log(round_dir, turn)
+    log(f">>> TURN {turn:02d} 收集完毕 <<<")
     print(f"请手动写 summary_{turn:02d}.md", flush=True)
     print(f"  如需为豆包压缩，同时写 doubao_brief_{turn + 1:02d}.md", flush=True)
     return True
@@ -350,7 +444,7 @@ def distribute_summary(turn: int, round_num: int, round_dir: str, rounds_dir: st
     """Push and distribute a summary. If is_final, append close notification."""
     summary_path = os.path.join(round_dir, f"summary_{turn:02d}.md")
     if not os.path.exists(summary_path):
-        print(f"未找到 summary_{turn:02d}.md，请先写好。", flush=True)
+        log(f"未找到 summary_{turn:02d}.md，请先写好。")
         return False
 
     round_path = rounds_dir + f"/round_{round_num:03d}/"
@@ -365,11 +459,11 @@ def distribute_summary(turn: int, round_num: int, round_dir: str, rounds_dir: st
             f"请 git pull 查看 {rounds_dir}/round_{round_num:03d}/summary_{turn:02d}.md"
         )
 
-    print(f"--- 通知衡/问 ({'结束' if is_final else '汇总'}) ---", flush=True)
+    log(f"--- 通知衡/问 ({'结束' if is_final else '汇总'}) ---")
     notify_all_ide(desktop, participants, ide_msg)
 
     if has_doubao:
-        print(f"--- 发给豆包 ({'结束' if is_final else '汇总'}) ---", flush=True)
+        log(f"--- 发给豆包 ({'结束' if is_final else '汇总'}) ---")
         summary_text = open(summary_path, encoding="utf-8").read()
         if is_final:
             closing = (
@@ -434,34 +528,46 @@ def main():
     round_dir = get_round_dir(repo_root, rounds_dir, round_num)
     round_path = rounds_dir + f"/round_{round_num:03d}/"
 
-    print(f"\n{'='*60}", flush=True)
-    print(f"圆桌自动化 — 第{round_num}轮", flush=True)
-    print(f"参与者: {', '.join(participants.keys())}", flush=True)
-    print(f"IDE通知: {', '.join(ide_names)}", flush=True)
-    print(f"豆包压缩阈值: turn > {settings.get('doubao_compress_after_turn', 1)}", flush=True)
-    print(f"{'='*60}\n", flush=True)
+    order = settings.get("default_order", list(participants.keys()))
+    if settings.get("rotate_order", False):
+        order = rotated_order(order, round_num)
+
+    log(f"{'='*60}")
+    log(f"圆桌自动化 — 第{round_num}轮")
+    log(f"参与者: {', '.join(participants.keys())}")
+    log(f"本轮顺序: {' → '.join(order)}")
+    log(f"IDE通知: {', '.join(ide_names)}")
+    log(f"豆包压缩阈值: turn > {settings.get('doubao_compress_after_turn', 1)}")
+    log(f"{'='*60}")
 
     # ===================== TURN 00: 发卷 =====================
     if args.turn <= 0:
-        print(">>> TURN 00: 发卷 <<<\n", flush=True)
+        log(">>> TURN 00: 发卷 <<<")
 
         topic_file = os.path.join(round_dir, "topic.md")
         if not os.path.exists(topic_file):
-            print(f"请先写好 {topic_file} 和 response_默_00.md，然后重新运行。", flush=True)
+            log(f"请先写好 {topic_file} 和 response_默_00.md，然后重新运行。")
             return
 
-        print("--- Git push 议题 ---", flush=True)
+        set_response_status("默", 0, "ok",
+                            len(open(os.path.join(round_dir, "response_默_00.md"),
+                                     encoding="utf-8").read())
+                            if os.path.exists(os.path.join(round_dir, "response_默_00.md")) else 0)
+
+        log("--- Git push 议题 ---")
         git_add_commit_push(repo_root, [round_path],
                             f"圆桌第{round_num}轮议题+默回应")
 
         notify_msg = make_notify_msg_turn00(round_num, rounds_dir)
-        print("\n--- 通知衡/问 ---", flush=True)
+        log("--- 通知衡/问 ---")
         notify_all_ide(desktop, participants, notify_msg)
 
         if has_doubao:
-            print("\n--- 发给豆包 ---", flush=True)
+            log("--- 发给豆包 ---")
             topic_text = open(topic_file, encoding="utf-8").read()
-            resp = send_to_doubao(topic_text, doubao_cfg)
+            resp, status = send_to_doubao(topic_text, doubao_cfg, turn=0)
+            _doubao_last_status.update({"turn": 0, "status": status,
+                                         "chars": len(resp) if resp else 0})
             if resp:
                 out = os.path.join(round_dir, "response_豆包_00.md")
                 with open(out, "w", encoding="utf-8") as f:
@@ -469,13 +575,15 @@ def main():
                 git_add_commit_push(repo_root, [round_path],
                                     f"round{round_num}: doubao response")
 
-        print("\n--- 等待衡/问回应 ---", flush=True)
+        log("--- 等待衡/问回应 ---")
         poll_git_responses(repo_root, round_dir, ide_names, turn=0,
                            timeout=settings.get("response_timeout", 300),
                            interval=settings.get("poll_interval", 15),
                            silence_keywords=silence_kw)
 
-        print("\n>>> TURN 00 收集完毕 <<<", flush=True)
+        save_response_status(round_dir)
+        save_run_log(round_dir, 0)
+        log(">>> TURN 00 收集完毕 <<<")
         print("请手动写 summary_00.md，然后运行: py main.py --turn 1\n", flush=True)
 
         summary_00 = os.path.join(round_dir, "summary_00.md")
@@ -486,27 +594,34 @@ def main():
 
     # ===================== TURN 01: 交锋 =====================
     if args.turn <= 1:
-        print("\n>>> TURN 01: 交锋 <<<\n", flush=True)
+        log(">>> TURN 01: 交锋 <<<")
 
         mo_01 = os.path.join(round_dir, "response_默_01.md")
         if not os.path.exists(mo_01):
-            print(f"请先写好 {mo_01}，然后重新运行 --turn 1。", flush=True)
+            log(f"请先写好 {mo_01}，然后重新运行 --turn 1。")
             return
+
+        set_response_status("默", 1, "ok",
+                            len(open(mo_01, encoding="utf-8").read()))
 
         git_add_commit_push(repo_root, [round_path],
                             f"round{round_num} turn01: mo response")
 
         notify_msg = make_notify_msg_turn01(round_num)
-        print("--- 通知衡/问 turn 01 ---", flush=True)
+        log("--- 通知衡/问 turn 01 ---")
         notify_all_ide(desktop, participants, notify_msg)
 
         if has_doubao:
-            print("\n--- 发给豆包 turn 01 ---", flush=True)
+            log("--- 发给豆包 turn 01 ---")
             summary_00 = os.path.join(round_dir, "summary_00.md")
-            doubao_prompt = "第二回合。请看完汇总后回应其他人对你的看法，畅所欲言。"
+            confirm = _doubao_confirm_prefix()
+            doubao_prompt = confirm + "第二回合。请看完汇总后回应其他人对你的看法，畅所欲言。"
             if os.path.exists(summary_00):
-                doubao_prompt = open(summary_00, encoding="utf-8").read() + "\n\n" + doubao_prompt
-            resp = send_to_doubao(doubao_prompt, doubao_cfg)
+                doubao_prompt = confirm + open(summary_00, encoding="utf-8").read() + \
+                    "\n\n第二回合。请看完汇总后回应其他人对你的看法，畅所欲言。"
+            resp, status = send_to_doubao(doubao_prompt, doubao_cfg, turn=1)
+            _doubao_last_status.update({"turn": 1, "status": status,
+                                         "chars": len(resp) if resp else 0})
             if resp:
                 out = os.path.join(round_dir, "response_豆包_01.md")
                 with open(out, "w", encoding="utf-8") as f:
@@ -514,13 +629,15 @@ def main():
                 git_add_commit_push(repo_root, [round_path],
                                     f"round{round_num} turn01: doubao response")
 
-        print("\n--- 等待衡/问 turn 01 ---", flush=True)
+        log("--- 等待衡/问 turn 01 ---")
         poll_git_responses(repo_root, round_dir, ide_names, turn=1,
                            timeout=settings.get("response_timeout", 300),
                            interval=settings.get("poll_interval", 15),
                            silence_keywords=silence_kw)
 
-        print("\n>>> TURN 01 收集完毕 <<<", flush=True)
+        save_response_status(round_dir)
+        save_run_log(round_dir, 1)
+        log(">>> TURN 01 收集完毕 <<<")
         print("请手动写 summary_01.md\n", flush=True)
 
         summary_01 = os.path.join(round_dir, "summary_01.md")
