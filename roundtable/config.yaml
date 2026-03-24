@@ -7,6 +7,9 @@ participants:
     driver: ide
     response_file_keyword: "衡"
     window_keyword: "gpt"
+    click_input: true
+    input_x_pct: 0.21
+    input_y_pct: 0.92
 
   豆包:
     driver: doubao
