@@ -32,4 +32,6 @@ settings:
   auto_git_push: true
   default_order: ["默", "衡", "豆包", "问"]
   standard_turns: 2
-  close_message: "本轮议题到此结束。如有补充可写 response_{名字}_02.md 提交，但不强制。"
+  doubao_compress_after_turn: 1
+  allow_silence_declaration: true
+  silence_keywords: ["没有需要发言", "没有新的补充", "这轮跳过"]
