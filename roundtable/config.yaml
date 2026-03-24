@@ -1,0 +1,30 @@
+participants:
+  默:
+    driver: git_file
+    response_file_keyword: "默"
+
+  衡:
+    driver: ide
+    response_file_keyword: "衡"
+    window_keyword: "gpt"
+
+  豆包:
+    driver: doubao
+    url: "https://www.doubao.com/chat/38417828105643010"
+    mode: auto
+
+  问:
+    driver: ide
+    response_file_keyword: "问"
+    window_keyword: "Lingma"
+    click_input: true
+    input_x_pct: 0.44
+    input_y_pct: 0.89
+
+settings:
+  repo_root: "f:/yishi/DigitalInheritance"
+  rounds_dir: "roundtable_meetings"
+  response_timeout: 300
+  poll_interval: 15
+  auto_git_push: true
+  default_order: ["默", "衡", "豆包", "问"]
