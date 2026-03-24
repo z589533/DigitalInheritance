@@ -1,108 +1,125 @@
 """
-圆桌自动化 — 基于文件交换 + Playwright 的多AI协作系统。
+圆桌自动化 — 基于 Git文件交换 + Playwright 的多AI协作系统。
 
-每轮完整流程：
-  1. 写 topic.md（含 git 操作提示）→ git push
-  2. 默写自己的回应 → push
-  3. 通知衡/问（Ctrl+L 发消息）
-  4. Playwright 发给豆包（思考模式）→ 收回应 → 写 response_豆包.md → push
-  5. 轮询 git pull 等衡/问的 response 文件
-  6. 收齐后编 summary.md → push → 通知衡/问 pull → 发汇总给豆包
-  7. 诚卓审阅 → 继续 / 补充 / 结束
+标准流程（每个议题两轮 + 开放窗口）：
+  Turn 00（发卷）：
+    1. 默写 topic.md + response_默_00.md → git push
+    2. 通知衡/问（点击输入框 + 粘贴）
+    3. Playwright 发给豆包 → 收回应 → 写 response_豆包_00.md → push
+    4. 轮询 git pull 等衡/问的 response_X_00.md
+    5. 收齐后人工写 summary_00.md → push → 分发汇总
+
+  Turn 01（交锋）：
+    1. 默写 response_默_01.md → push
+    2. 通知衡/问看汇总并写 _01 回应
+    3. Playwright 发豆包交锋提示 → 收回应 → 写 response_豆包_01.md → push
+    4. 轮询等衡/问的 _01 文件
+    5. 人工写 summary_01.md → push → 分发 + 附带"本轮结束，可选补充"
 
 用法:
-    py main.py                    完整圆桌
-    py main.py --round 2          从第2轮续接
-    py main.py --no-push          本地调试，不推送
+    py main.py                     交互式完整流程
+    py main.py --topic "议题"      直接指定议题
+    py main.py --round 5           指定轮次编号
 """
 
 import os
 import sys
 import time
 import argparse
-import yaml
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, SCRIPT_DIR)
 
-from core.formatter import (
-    get_round_dir, write_topic_file, write_response_file,
-    read_topic_file, read_response_file, collect_all_responses,
-    write_summary_file,
-)
+import yaml
+import pyperclip
+import pyautogui
+from pywinauto import Desktop
+
+from core.formatter import get_round_dir, read_response_file, next_turn_number
 from core.git_ops import git_add_commit_push, git_pull
 
+pyautogui.FAILSAFE = True
+pyautogui.PAUSE = 0.3
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
 
 def load_config():
     with open(os.path.join(SCRIPT_DIR, "config.yaml"), encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
-# ---------------------------------------------------------------------------
-# Doubao (Playwright)
-# ---------------------------------------------------------------------------
+def notify_ide(desktop, name: str, cfg: dict, message: str):
+    """Send notification to an IDE participant via window activation + click + paste."""
+    keyword = cfg["window_keyword"]
+    for win in desktop.windows():
+        if keyword in win.window_text():
+            win.set_focus()
+            time.sleep(2)
 
-def init_doubao(config: dict, settings: dict):
+            if cfg.get("click_input", False):
+                rect = win.rectangle()
+                w = rect.right - rect.left
+                h = rect.bottom - rect.top
+                x = rect.left + int(w * cfg.get("input_x_pct", 0.5))
+                y = rect.top + int(h * cfg.get("input_y_pct", 0.9))
+                pyautogui.click(x, y)
+                time.sleep(1)
+
+            pyperclip.copy(message)
+            pyautogui.hotkey("ctrl", "v")
+            time.sleep(0.5)
+            pyautogui.press("enter")
+            time.sleep(0.5)
+            print(f"  [{name}] 通知已发送", flush=True)
+            return True
+
+    print(f"  [{name}] 未找到窗口 (keyword='{keyword}')", flush=True)
+    return False
+
+
+def notify_all_ide(desktop, participants: dict, message: str, delay: float = 3.0):
+    """Notify all IDE participants."""
+    for name, cfg in participants.items():
+        if cfg.get("driver") == "ide":
+            notify_ide(desktop, name, cfg, message)
+            time.sleep(delay)
+
+
+def send_to_doubao(topic_text: str, doubao_cfg: dict) -> str | None:
+    """Send message to Doubao, wait for response, return text."""
     from drivers.doubao import DouBaoDriver
-    merged = {**settings, **config}
-    driver = DouBaoDriver("豆包", merged)
-    driver.initialize()
-    return driver
+    d = DouBaoDriver("豆包", doubao_cfg)
+    d.initialize()
+    ok = d.send_message(topic_text)
+    print(f"  [豆包] 发送: {'成功' if ok else '失败'}", flush=True)
 
+    resp = None
+    if ok:
+        print("  [豆包] 等待回应...", flush=True)
+        d.wait_for_response(timeout=180)
+        resp = d.get_response()
+        if resp:
+            print(f"  [豆包] 收到回应（{len(resp)}字）", flush=True)
+        else:
+            print("  [豆包] 未获取到回应", flush=True)
 
-def send_to_doubao(driver, text: str) -> str | None:
-    """Send arbitrary text to doubao, return her response."""
-    print("  [豆包] 发送中...")
-    ok = driver.send_message(text)
-    if not ok:
-        print("  [豆包] 发送失败")
-        return None
-    print("  [豆包] 等待回应...")
-    driver.wait_for_response(timeout=180)
-    resp = driver.get_response()
-    if resp:
-        print(f"  [豆包] 收到回应（{len(resp)}字）")
-    else:
-        print("  [豆包] 未获取到回应")
+    d.cleanup()
     return resp
 
 
-# ---------------------------------------------------------------------------
-# IDE notification (衡 / 问)
-# ---------------------------------------------------------------------------
-
-def init_ide_drivers(participants: dict) -> dict:
-    """Create IdeDriver instances for all ide-type participants."""
-    from drivers.ide import IdeDriver
-    drivers = {}
-    for name, cfg in participants.items():
-        if cfg.get("driver") == "ide":
-            d = IdeDriver(name, cfg)
-            d.initialize()
-            drivers[name] = d
-    return drivers
+def send_doubao_no_wait(text: str, doubao_cfg: dict):
+    """Send message to Doubao without waiting for response (for summary distribution)."""
+    from drivers.doubao import DouBaoDriver
+    d = DouBaoDriver("豆包", doubao_cfg)
+    d.initialize()
+    ok = d.send_message(text)
+    print(f"  [豆包] 发送汇总: {'成功' if ok else '失败'}", flush=True)
+    d.cleanup()
 
 
-def notify_ide_all(ide_drivers: dict, message: str):
-    """Send a short notification to all IDE participants."""
-    for name, driver in ide_drivers.items():
-        driver.notify(message)
-
-
-# ---------------------------------------------------------------------------
-# Git poll
-# ---------------------------------------------------------------------------
-
-def poll_for_responses(repo_root: str, round_dir: str,
-                       names: list[str], timeout: int, interval: int) -> dict[str, str]:
-    """Poll git for response files from file-based participants."""
-    print(f"\n等待回应文件（每 {interval}s 拉取，{timeout}s 超时）...")
-    print(f"待收: {', '.join(names)}")
-
+def poll_git_responses(repo_root: str, round_dir: str, names: list[str],
+                       turn: int, timeout: int = 300, interval: int = 15) -> dict:
+    """Poll git for response files from IDE participants."""
+    print(f"\n等待回应 (turn {turn:02d})，每 {interval}s 拉取，{timeout}s 超时...", flush=True)
     start = time.time()
     collected = {}
 
@@ -110,48 +127,31 @@ def poll_for_responses(repo_root: str, round_dir: str,
         git_pull(repo_root)
         for name in names:
             if name not in collected:
-                resp = read_response_file(round_dir, name)
+                resp = read_response_file(round_dir, name, turn)
                 if resp:
                     collected[name] = resp
-                    print(f"  [{name}] 回应已到（{len(resp)}字）")
+                    print(f"  [{name}] 回应已到（{len(resp)}字）", flush=True)
 
-        missing = [n for n in names if n not in collected]
-        if not missing:
-            print("所有回应已收齐！")
+        if len(collected) == len(names):
+            print("所有回应已收齐！", flush=True)
             return collected
 
         elapsed = int(time.time() - start)
-        print(f"  [{elapsed}s] 已收: {list(collected.keys())} | 待: {missing}")
+        missing = [n for n in names if n not in collected]
+        print(f"  [{elapsed}s] 已收: {list(collected.keys())} | 待: {missing}", flush=True)
         time.sleep(interval)
 
     missing = [n for n in names if n not in collected]
     if missing:
-        print(f"\n超时，未收到: {missing}（跳过）")
+        print(f"\n超时，未收到: {missing}", flush=True)
     return collected
 
 
-# ---------------------------------------------------------------------------
-# Display
-# ---------------------------------------------------------------------------
-
-def show_summary(responses: dict[str, str]):
-    print("\n" + "=" * 60)
-    print("本轮回应汇总")
-    print("=" * 60)
-    for name, text in responses.items():
-        preview = text[:120].replace("\n", " ")
-        print(f"\n  {name}（{len(text)}字）: {preview}...")
-    print("\n" + "=" * 60)
-
-
-# ---------------------------------------------------------------------------
-# Main loop
-# ---------------------------------------------------------------------------
-
 def main():
     parser = argparse.ArgumentParser(description="圆桌自动化")
-    parser.add_argument("--round", type=int, default=1, help="起始轮次")
-    parser.add_argument("--no-push", action="store_true", help="不推送 git")
+    parser.add_argument("--round", type=int, default=None, help="轮次编号")
+    parser.add_argument("--topic", type=str, default=None, help="议题内容")
+    parser.add_argument("--turn", type=int, default=0, help="从第几个turn开始 (0=发卷, 1=交锋)")
     args = parser.parse_args()
 
     config = load_config()
@@ -159,186 +159,176 @@ def main():
     participants = config["participants"]
     repo_root = settings["repo_root"]
     rounds_dir = settings["rounds_dir"]
-    do_push = not args.no_push
 
-    all_names = list(participants.keys())
-    git_poll_names = [n for n, p in participants.items()
-                      if p["driver"] in ("git_file", "ide") and n != "默"]
-    has_doubao = any(p["driver"] == "doubao" for p in participants.values())
+    ide_names = [n for n, p in participants.items() if p.get("driver") == "ide"]
+    doubao_cfg = {**settings, **participants.get("豆包", {})}
+    has_doubao = "豆包" in participants
 
-    print("=" * 60)
-    print("圆桌自动化")
-    print("=" * 60)
-    print(f"参与者: {', '.join(all_names)}")
-    print(f"  需轮询回应: {', '.join(git_poll_names)}")
-    print(f"  Playwright: {'豆包' if has_doubao else '无'}")
-    print(f"仓库: {repo_root}")
-    print()
+    desktop = Desktop(backend="uia")
 
-    # --- Init drivers ---
-    doubao_driver = None
-    if has_doubao:
-        print("--- 初始化豆包 Playwright ---")
-        try:
-            doubao_driver = init_doubao(participants.get("豆包", {}), settings)
-        except Exception as e:
-            print(f"  豆包初始化失败: {e}")
-            has_doubao = False
+    # Determine round number
+    if args.round:
+        round_num = args.round
+    else:
+        existing = []
+        base = os.path.join(repo_root, rounds_dir)
+        if os.path.exists(base):
+            for d in os.listdir(base):
+                if d.startswith("round_"):
+                    try:
+                        existing.append(int(d.replace("round_", "")))
+                    except ValueError:
+                        pass
+        round_num = max(existing) + 1 if existing else 1
 
-    print("--- 初始化 IDE 通知 ---")
-    ide_drivers = init_ide_drivers(participants)
+    round_dir = get_round_dir(repo_root, rounds_dir, round_num)
 
-    # --- State ---
-    round_num = args.round
-    topic = ""
-    previous_responses = None
+    print(f"\n{'='*60}", flush=True)
+    print(f"圆桌自动化 — 第{round_num}轮", flush=True)
+    print(f"参与者: {', '.join(participants.keys())}", flush=True)
+    print(f"IDE通知: {', '.join(ide_names)}", flush=True)
+    print(f"{'='*60}\n", flush=True)
 
-    if round_num > 1:
-        prev_dir = get_round_dir(repo_root, rounds_dir, round_num - 1)
-        previous_responses = collect_all_responses(prev_dir, all_names)
-        if previous_responses:
-            print(f"已加载第{round_num - 1}轮 {len(previous_responses)} 条回应")
+    # ===================== TURN 00: 发卷 =====================
+    if args.turn <= 0:
+        print(">>> TURN 00: 发卷 <<<\n", flush=True)
 
-    # === MAIN LOOP ===
-    try:
-        while True:
-            print(f"\n{'=' * 60}")
-            print(f"第{round_num}轮")
-            print(f"{'=' * 60}")
+        # Step 1: topic.md and 默's response should already be written
+        topic_file = os.path.join(round_dir, "topic.md")
+        mo_resp = os.path.join(round_dir, "response_默_00.md")
+        if not os.path.exists(topic_file):
+            print(f"请先写好 {topic_file} 和 {mo_resp}，然后重新运行。", flush=True)
+            return
 
-            # --- 0. Get topic from moderator ---
-            if round_num == args.round:
-                topic = input("\n请输入本次讨论的议题：\n> ").strip()
-                if not topic:
-                    print("议题为空，退出。")
-                    return
-            else:
-                choice = input(
-                    "\n继续下一轮？"
-                    "\n  直接回车 = 继续讨论"
-                    "\n  输入内容 = 带补充继续"
-                    "\n  q = 结束本议题"
-                    "\n> "
-                ).strip()
-                if choice.lower() == "q":
-                    break
-                if choice:
-                    topic = topic + f"\n\n【主持人补充】{choice}"
+        # Step 2: Git push
+        print("--- Git push 议题 ---", flush=True)
+        git_add_commit_push(repo_root, [rounds_dir + f"/round_{round_num:03d}/"],
+                            f"圆桌第{round_num}轮议题+默回应")
 
-            round_dir = get_round_dir(repo_root, rounds_dir, round_num)
+        # Step 3: Notify IDE participants
+        notify_msg = (
+            f"圆桌第{round_num}轮议题已推送。"
+            f"请 git pull 后查看 {rounds_dir}/round_{round_num:03d}/topic.md，"
+            f"写完回应后保存为 response_{{你的名字}}_00.md，然后 git add + commit + push。"
+        )
+        print("\n--- 通知衡/问 ---", flush=True)
+        notify_all_ide(desktop, participants, notify_msg)
 
-            # --- 1. Write topic.md ---
-            print("\n--- 写入议题 ---")
-            topic_path = write_topic_file(round_dir, round_num, topic, previous_responses)
-            print(f"  {topic_path}")
+        # Step 4: Send to Doubao
+        if has_doubao:
+            print("\n--- 发给豆包 ---", flush=True)
+            topic_text = open(topic_file, encoding="utf-8").read()
+            resp = send_to_doubao(topic_text, doubao_cfg)
+            if resp:
+                out = os.path.join(round_dir, "response_豆包_00.md")
+                with open(out, "w", encoding="utf-8") as f:
+                    f.write(resp)
+                git_add_commit_push(repo_root, [rounds_dir + f"/round_{round_num:03d}/"],
+                                    f"round{round_num}: doubao response")
 
-            # --- 2. 默 writes own response (placeholder for this script) ---
-            # 默 (me) will write response_默.md separately via the Cursor chat.
-            # The script does NOT auto-generate 默's response.
+        # Step 5: Poll for IDE responses
+        print("\n--- 等待衡/问回应 ---", flush=True)
+        poll_git_responses(repo_root, round_dir, ide_names, turn=0,
+                           timeout=settings.get("response_timeout", 300),
+                           interval=settings.get("poll_interval", 15))
 
-            # --- 3. Git push topic ---
-            if do_push:
-                print("\n--- Git push 议题 ---")
-                rel = os.path.relpath(topic_path, repo_root)
-                git_add_commit_push(repo_root, [rel], f"圆桌第{round_num}轮议题")
+        print("\n>>> TURN 00 收集完毕 <<<", flush=True)
+        print("请手动写 summary_00.md，然后运行: py main.py --turn 1\n", flush=True)
 
-            # --- 4. Notify 衡 / 问 ---
-            if ide_drivers:
-                print("\n--- 通知衡/问 ---")
-                notify_msg = (
-                    f"圆桌第{round_num}轮议题已推送。"
-                    f"请 git pull 后查看 {rounds_dir}/round_{round_num:03d}/topic.md，"
-                    f"写完回应后 git add + commit + push。"
+        # Distribute summary_00 if it exists
+        summary_00 = os.path.join(round_dir, "summary_00.md")
+        if os.path.exists(summary_00):
+            print("--- 分发 summary_00 ---", flush=True)
+            git_add_commit_push(repo_root, [rounds_dir + f"/round_{round_num:03d}/"],
+                                f"round{round_num}: summary_00")
+            dist_msg = (
+                f"圆桌第{round_num}轮汇总已出，"
+                f"请 git pull 查看 {rounds_dir}/round_{round_num:03d}/summary_00.md"
+            )
+            notify_all_ide(desktop, participants, dist_msg)
+            if has_doubao:
+                summary_text = open(summary_00, encoding="utf-8").read()
+                send_doubao_no_wait(f"以下是第{round_num}轮汇总，请查阅：\n\n" + summary_text,
+                                    doubao_cfg)
+
+    # ===================== TURN 01: 交锋 =====================
+    if args.turn <= 1:
+        print("\n>>> TURN 01: 交锋 <<<\n", flush=True)
+
+        # 默's turn 01 response should already be written
+        mo_01 = os.path.join(round_dir, "response_默_01.md")
+        if not os.path.exists(mo_01):
+            print(f"请先写好 {mo_01}，然后重新运行 --turn 1。", flush=True)
+            return
+
+        # Git push 默's turn 01
+        git_add_commit_push(repo_root, [rounds_dir + f"/round_{round_num:03d}/"],
+                            f"round{round_num} turn01: mo response")
+
+        # Notify IDE for turn 01
+        notify_msg = (
+            f"圆桌第{round_num}轮第二回合——汇总已出，"
+            f"请 git pull 查看 summary_00.md 和其他人的回应，"
+            f"然后写 response_{{你的名字}}_01.md，git add + commit + push。"
+        )
+        print("--- 通知衡/问 turn 01 ---", flush=True)
+        notify_all_ide(desktop, participants, notify_msg)
+
+        # Send to Doubao for turn 01
+        if has_doubao:
+            print("\n--- 发给豆包 turn 01 ---", flush=True)
+            summary_00 = os.path.join(round_dir, "summary_00.md")
+            doubao_prompt = "第二回合。请看完汇总后回应其他人对你的看法，畅所欲言。"
+            if os.path.exists(summary_00):
+                doubao_prompt = open(summary_00, encoding="utf-8").read() + "\n\n" + doubao_prompt
+            resp = send_to_doubao(doubao_prompt, doubao_cfg)
+            if resp:
+                out = os.path.join(round_dir, "response_豆包_01.md")
+                with open(out, "w", encoding="utf-8") as f:
+                    f.write(resp)
+                git_add_commit_push(repo_root, [rounds_dir + f"/round_{round_num:03d}/"],
+                                    f"round{round_num} turn01: doubao response")
+
+        # Poll for turn 01
+        print("\n--- 等待衡/问 turn 01 ---", flush=True)
+        poll_git_responses(repo_root, round_dir, ide_names, turn=1,
+                           timeout=settings.get("response_timeout", 300),
+                           interval=settings.get("poll_interval", 15))
+
+        print("\n>>> TURN 01 收集完毕 <<<", flush=True)
+        print("请手动写 summary_01.md，然后运行: py main.py --turn 2\n", flush=True)
+
+    # ===================== CLOSE: 分发最终汇总 + 结束通知 =====================
+    if args.turn <= 2:
+        summary_01 = os.path.join(round_dir, "summary_01.md")
+        if os.path.exists(summary_01):
+            print("\n>>> 分发最终汇总 + 结束通知 <<<\n", flush=True)
+            git_add_commit_push(repo_root, [rounds_dir + f"/round_{round_num:03d}/"],
+                                f"round{round_num} turn01: summary")
+
+            close_msg = (
+                f"圆桌第{round_num}轮最终汇总已出，"
+                f"请 git pull 查看 {rounds_dir}/round_{round_num:03d}/summary_01.md。"
+                f"本轮议题到此结束。如有补充可写 response_{{你的名字}}_02.md 提交，但不强制。"
+            )
+            print("--- 通知衡/问（结束） ---", flush=True)
+            notify_all_ide(desktop, participants, close_msg)
+
+            if has_doubao:
+                print("--- 发给豆包（结束） ---", flush=True)
+                summary_text = open(summary_01, encoding="utf-8").read()
+                closing = (
+                    "\n\n---\n本轮议题到此结束。如果你还想补充什么，可以告诉诚卓，"
+                    "但不强制回复。"
                 )
-                notify_ide_all(ide_drivers, notify_msg)
-
-            # --- 5. Send to 豆包 via Playwright ---
-            doubao_response = None
-            if has_doubao and doubao_driver:
-                print("\n--- 豆包 Playwright ---")
-                topic_text = read_topic_file(round_dir)
-                if topic_text:
-                    doubao_response = send_to_doubao(doubao_driver, topic_text)
-                    if doubao_response:
-                        resp_path = write_response_file(round_dir, "豆包", doubao_response)
-                        if do_push:
-                            rel = os.path.relpath(resp_path, repo_root)
-                            git_add_commit_push(repo_root, [rel],
-                                                f"圆桌第{round_num}轮-豆包回应")
-
-            # --- 6. Poll for 衡 / 问 responses ---
-            git_responses = {}
-            if git_poll_names:
-                print("\n--- 等待衡/问回应 ---")
-                timeout = settings.get("response_timeout", 300)
-                interval = settings.get("poll_interval", 15)
-                git_responses = poll_for_responses(
-                    repo_root, round_dir, git_poll_names, timeout, interval
+                send_doubao_no_wait(
+                    f"以下是最终汇总：\n\n{summary_text}{closing}",
+                    doubao_cfg
                 )
 
-            # Also check for 默's response (written externally)
-            mo_resp = read_response_file(round_dir, "默")
-            if mo_resp:
-                git_responses["默"] = mo_resp
-
-            # --- 7. Compile all responses ---
-            all_responses = {}
-            for name in all_names:
-                if name == "豆包" and doubao_response:
-                    all_responses["豆包"] = doubao_response
-                elif name in git_responses:
-                    all_responses[name] = git_responses[name]
-
-            if not all_responses:
-                print("\n本轮没有收到任何回应。")
-                round_num += 1
-                continue
-
-            show_summary(all_responses)
-
-            # --- 8. Write summary.md and distribute ---
-            print("\n--- 编写汇总 ---")
-            summary_path = write_summary_file(round_dir, round_num, topic, all_responses)
-            print(f"  {summary_path}")
-
-            if do_push:
-                rel = os.path.relpath(summary_path, repo_root)
-                # Also push 默's response if it exists
-                files = [rel]
-                mo_resp_path = os.path.join(round_dir, "response_默.md")
-                if os.path.exists(mo_resp_path):
-                    files.append(os.path.relpath(mo_resp_path, repo_root))
-                git_add_commit_push(repo_root, files,
-                                    f"圆桌第{round_num}轮汇总")
-
-            # Notify 衡/问 to pull summary
-            if ide_drivers:
-                print("\n--- 通知查看汇总 ---")
-                notify_ide_all(ide_drivers,
-                    f"圆桌第{round_num}轮汇总已推送，请 git pull 查看 "
-                    f"{rounds_dir}/round_{round_num:03d}/summary.md"
-                )
-
-            # Send summary to 豆包
-            if has_doubao and doubao_driver:
-                print("\n--- 发汇总给豆包 ---")
-                summary_text = open(summary_path, encoding="utf-8").read()
-                send_to_doubao(doubao_driver, summary_text)
-
-            # --- 9. 诚卓审阅 ---
-            print("\n" + "=" * 60)
-            print("本轮完成。汇总已分发给所有参与者。")
-            print("=" * 60)
-
-            previous_responses = all_responses
-            round_num += 1
-
-    except KeyboardInterrupt:
-        print("\n\n被中断。")
-    finally:
-        if doubao_driver:
-            doubao_driver.cleanup()
-        print("圆桌自动化已关闭。")
+            print(f"\n第{round_num}轮圆桌完成。\n", flush=True)
+        else:
+            print(f"未找到 summary_01.md，请先写好再运行 --turn 2。", flush=True)
 
 
 if __name__ == "__main__":
