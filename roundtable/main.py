@@ -519,6 +519,66 @@ def run_notify(targets: list[str], message: str):
     log("通知发送完毕。")
 
 
+def run_extract_doubao(output_path: str):
+    """Open Doubao page with persistent context and extract the last response."""
+    from drivers.doubao import DouBaoDriver, DriverMode
+    import pyperclip
+
+    config = load_config()
+    cfg = config["participants"].get("豆包", {})
+    settings = config.get("settings", {})
+    merged = {**settings, **cfg}
+    url = merged.get("url", "https://www.doubao.com/chat/")
+
+    profile_dir = os.path.join(os.path.dirname(__file__), "doubao_profile")
+    from playwright.sync_api import sync_playwright
+
+    pw = sync_playwright().start()
+    ctx = pw.chromium.launch_persistent_context(
+        user_data_dir=profile_dir, headless=False,
+        viewport={"width": 1280, "height": 800},
+    )
+    page = ctx.pages[0] if ctx.pages else ctx.new_page()
+    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+    page.wait_for_timeout(8000)
+
+    RECV_SEL = '[data-testid="receive_message"]'
+    all_recv = page.locator(RECV_SEL)
+    count = all_recv.count()
+    log(f"[豆包] 找到 {count} 条回复消息")
+
+    text = None
+    if count > 0:
+        last_msg = all_recv.nth(count - 1)
+        last_msg.hover(timeout=3000)
+        page.wait_for_timeout(1000)
+
+        sentinel = "__doubao_extract_sentinel__"
+        pyperclip.copy(sentinel)
+        copy_btn = last_msg.locator('[data-testid="message_action_copy"]').first
+        if copy_btn.is_visible(timeout=2000):
+            copy_btn.click(force=True)
+            page.wait_for_timeout(1000)
+            clip = pyperclip.paste()
+            if clip and clip != sentinel and clip.strip():
+                text = clip.strip()
+                log(f"[豆包] 通过复制按钮提取: {len(text)} 字符")
+
+        if not text:
+            text = last_msg.inner_text().strip()
+            log(f"[豆包] 通过inner_text提取: {len(text)} 字符")
+
+    ctx.close()
+    pw.stop()
+
+    if text:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        log(f"[豆包] 已保存到 {output_path}")
+    else:
+        log("[豆包] 未提取到回复")
+
+
 def main():
     global config_settings_cache
 
@@ -529,7 +589,14 @@ def main():
                         help="单向通知模式：发送消息给指定参与者")
     parser.add_argument("--to", type=str, default=None,
                         help="通知目标，逗号分隔（默认所有IDE参与者）。如：衡,问")
+    parser.add_argument("--extract-doubao", type=str, default=None,
+                        dest="extract_doubao",
+                        help="提取豆包最后一条回复，保存到指定文件路径")
     args = parser.parse_args()
+
+    if args.extract_doubao:
+        run_extract_doubao(args.extract_doubao)
+        return
 
     if args.notify:
         targets = [t.strip() for t in args.to.split(",")] if args.to else []

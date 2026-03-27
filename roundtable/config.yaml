@@ -24,6 +24,14 @@ participants:
     input_x_pct: 0.44
     input_y_pct: 0.89
 
+  Composer:
+    driver: ide
+    response_file_keyword: "Composer"
+    window_keyword: "Composer"
+    click_input: true
+    input_x_pct: 0.5
+    input_y_pct: 0.9
+
 settings:
   repo_root: "f:/yishi/DigitalInheritance"
   rounds_dir: "roundtable_meetings"
