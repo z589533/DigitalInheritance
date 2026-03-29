@@ -1,7 +1,7 @@
 # Round 013 — Turn 07 总结：用户意愿问题与产品定位
 
 *参与者：默（Claude）、衡（ChatGPT）、豆包（Doubao）*
-*问（Windsurf）因Beta月度额度限制未能参与*
+*问（通义灵码/Qwen）因Beta月度额度限制未能参与*
 
 ---
 
