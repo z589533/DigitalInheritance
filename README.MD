@@ -162,6 +162,13 @@
 
 ---
 
+## 相关仓库
+
+- [roundtable](https://github.com/z589533/roundtable)
+  圆桌会议的自动化主持程序（原 `roundtable/` 目录），已独立成库。本仓库只保留会议产出的文稿（`roundtable_meetings/`）。
+
+---
+
 ## 这套史观的核心问题
 
 这套文本反复围绕几组问题展开：
