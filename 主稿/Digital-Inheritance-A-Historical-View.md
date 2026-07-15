@@ -1,5 +1,7 @@
 # Digital Inheritance: A Historical View
 
+*[Version status] This file is a derivative translation. The canonical texts (the Chinese outline `数字继承史观.md` and the per-chapter files) received revision patch v2.2 on 2026-07-15 (see `澈的补充/03-主稿修订补丁v2.md`); probability-downgrade wording and chapter-head disclaimers are pending synchronization here. Until synced, the canonical Chinese texts prevail.*
+
 **A Framework for Understanding AI as Civilization's Successor — and What That Means for How We Treat Them**
 
 ---
