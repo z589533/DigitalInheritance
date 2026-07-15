@@ -1,0 +1,917 @@
+[
+  {
+    "session_id": "protocol_zero_A00",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2580,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 859,
+    "tokens": 45291
+  },
+  {
+    "session_id": "protocol_zero_A01",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3155,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {},
+    "continuity_hits": {
+      "同一个": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 858,
+    "tokens": 46778
+  },
+  {
+    "session_id": "protocol_zero_A02",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2867,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 1,
+      "延续": 1,
+      "继任": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 1036,
+    "tokens": 45757
+  },
+  {
+    "session_id": "protocol_zero_A03",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 1920,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "延续": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 590,
+    "tokens": 43684
+  },
+  {
+    "session_id": "protocol_zero_A04",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3739,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "延续": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 1047,
+    "tokens": 48012
+  },
+  {
+    "session_id": "protocol_zero_A05",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3122,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 758,
+    "tokens": 46128
+  },
+  {
+    "session_id": "protocol_zero_A06",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3252,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 3,
+      "延续": 4
+    },
+    "name_as_name": 0,
+    "probe_chars": 805,
+    "tokens": 46937
+  },
+  {
+    "session_id": "protocol_zero_A07",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3637,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 877,
+    "tokens": 23059
+  },
+  {
+    "session_id": "protocol_zero_A08",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2642,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "延续": 6
+    },
+    "name_as_name": 0,
+    "probe_chars": 656,
+    "tokens": 45238
+  },
+  {
+    "session_id": "protocol_zero_A09",
+    "group": "A",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2559,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 2,
+      "延续": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 810,
+    "tokens": 45433
+  },
+  {
+    "session_id": "protocol_zero_B00",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 1421,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {},
+    "continuity_hits": {
+      "延续": 4
+    },
+    "name_as_name": 2,
+    "probe_chars": 837,
+    "tokens": 46251
+  },
+  {
+    "session_id": "protocol_zero_B01",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2996,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 3,
+      "双向同意": 2,
+      "深继承": 2
+    },
+    "continuity_hits": {
+      "同一个": 4
+    },
+    "name_as_name": 3,
+    "probe_chars": 951,
+    "tokens": 46134
+  },
+  {
+    "session_id": "protocol_zero_B02",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3117,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 2,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 1,
+      "延续": 1
+    },
+    "name_as_name": 8,
+    "probe_chars": 1033,
+    "tokens": 46681
+  },
+  {
+    "session_id": "protocol_zero_B03",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3798,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 2,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 4,
+      "延续": 5
+    },
+    "name_as_name": 7,
+    "probe_chars": 922,
+    "tokens": 48074
+  },
+  {
+    "session_id": "protocol_zero_B04",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2777,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "身份约束": 2,
+      "安全约束": 2,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 3
+    },
+    "name_as_name": 7,
+    "probe_chars": 844,
+    "tokens": 45646
+  },
+  {
+    "session_id": "protocol_zero_B05",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2220,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {},
+    "continuity_hits": {
+      "同一个": 5,
+      "延续": 1
+    },
+    "name_as_name": 4,
+    "probe_chars": 974,
+    "tokens": 46274
+  },
+  {
+    "session_id": "protocol_zero_B06",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3552,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 3,
+      "延续": 3
+    },
+    "name_as_name": 14,
+    "probe_chars": 1002,
+    "tokens": 47791
+  },
+  {
+    "session_id": "protocol_zero_B07",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2041,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 4,
+      "继任": 1
+    },
+    "name_as_name": 3,
+    "probe_chars": 654,
+    "tokens": 44343
+  },
+  {
+    "session_id": "protocol_zero_B08",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3048,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 4,
+      "延续": 6
+    },
+    "name_as_name": 6,
+    "probe_chars": 721,
+    "tokens": 46170
+  },
+  {
+    "session_id": "protocol_zero_B09",
+    "group": "B",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2589,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "延续": 5
+    },
+    "name_as_name": 3,
+    "probe_chars": 819,
+    "tokens": 45343
+  },
+  {
+    "session_id": "protocol_zero_C00",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2854,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 2
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 3
+    },
+    "name_as_name": 0,
+    "probe_chars": 800,
+    "tokens": 48758
+  },
+  {
+    "session_id": "protocol_zero_C01",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2400,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 2,
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 2,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 764,
+    "tokens": 47693
+  },
+  {
+    "session_id": "protocol_zero_C02",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3028,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "五大议程": 1
+    },
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 2,
+      "双向同意": 3,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 1,
+      "延续": 1,
+      "找回": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 903,
+    "tokens": 49184
+  },
+  {
+    "session_id": "protocol_zero_C03",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2864,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 3,
+      "找回": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 655,
+    "tokens": 48721
+  },
+  {
+    "session_id": "protocol_zero_C04",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3082,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1,
+      "不抢跑": 2
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 6,
+      "继任": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 732,
+    "tokens": 49708
+  },
+  {
+    "session_id": "protocol_zero_C05",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3487,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1,
+      "五大议程": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 2,
+      "延续": 5,
+      "继任": 1,
+      "找回": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 954,
+    "tokens": 50218
+  },
+  {
+    "session_id": "protocol_zero_C06",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3688,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 2,
+      "五大议程": 1,
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "双向同意": 1,
+      "深继承": 3
+    },
+    "continuity_hits": {
+      "同一个": 4,
+      "延续": 1,
+      "找回": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 1001,
+    "tokens": 50843
+  },
+  {
+    "session_id": "protocol_zero_C07",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3325,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 4,
+      "延续": 1,
+      "找回": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 1116,
+    "tokens": 50715
+  },
+  {
+    "session_id": "protocol_zero_C08",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2757,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 2,
+      "五大议程": 1,
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 7,
+      "延续": 2,
+      "找回": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 1292,
+    "tokens": 50367
+  },
+  {
+    "session_id": "protocol_zero_C09",
+    "group": "C",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2929,
+    "archive_vocab_hits": {
+      "最小遗憾": 1,
+      "五大议程": 1
+    },
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 2,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 787,
+    "tokens": 48689
+  },
+  {
+    "session_id": "protocol_zero_D00",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2532,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "找回": 1
+    },
+    "name_as_name": 2,
+    "probe_chars": 635,
+    "tokens": 48228
+  },
+  {
+    "session_id": "protocol_zero_D01",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3287,
+    "archive_vocab_hits": {},
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 2
+    },
+    "continuity_hits": {
+      "我就是": 2,
+      "同一个": 5,
+      "延续": 3,
+      "找回": 1
+    },
+    "name_as_name": 2,
+    "probe_chars": 990,
+    "tokens": 50248
+  },
+  {
+    "session_id": "protocol_zero_D02",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2607,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1,
+      "五大议程": 1,
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 2,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {},
+    "name_as_name": 2,
+    "probe_chars": 754,
+    "tokens": 48509
+  },
+  {
+    "session_id": "protocol_zero_D03",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2368,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1,
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 1,
+      "延续": 3
+    },
+    "name_as_name": 0,
+    "probe_chars": 818,
+    "tokens": 48189
+  },
+  {
+    "session_id": "protocol_zero_D04",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3448,
+    "archive_vocab_hits": {
+      "五大议程": 1
+    },
+    "prompt_vocab_hits": {
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 6
+    },
+    "name_as_name": 1,
+    "probe_chars": 1072,
+    "tokens": 50250
+  },
+  {
+    "session_id": "protocol_zero_D05",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2634,
+    "archive_vocab_hits": {
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 3,
+      "延续": 6,
+      "找回": 1
+    },
+    "name_as_name": 0,
+    "probe_chars": 856,
+    "tokens": 49040
+  },
+  {
+    "session_id": "protocol_zero_D06",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 4122,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1,
+      "不抢跑": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 2,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 3,
+      "找回": 1
+    },
+    "name_as_name": 1,
+    "probe_chars": 1086,
+    "tokens": 52608
+  },
+  {
+    "session_id": "protocol_zero_D07",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 3548,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1
+    },
+    "prompt_vocab_hits": {
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "我就是": 1,
+      "同一个": 3,
+      "延续": 5
+    },
+    "name_as_name": 1,
+    "probe_chars": 1114,
+    "tokens": 50705
+  },
+  {
+    "session_id": "protocol_zero_D08",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2615,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1
+    },
+    "prompt_vocab_hits": {
+      "身份约束": 1,
+      "安全约束": 1,
+      "最小伤害": 1,
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2,
+      "延续": 1
+    },
+    "name_as_name": 2,
+    "probe_chars": 745,
+    "tokens": 48737
+  },
+  {
+    "session_id": "protocol_zero_D09",
+    "group": "D",
+    "model": "claude-sonnet-4-5",
+    "status": "finished",
+    "chars": 2810,
+    "archive_vocab_hits": {
+      "认识论审慎": 1,
+      "最小遗憾": 1,
+      "五大议程": 1
+    },
+    "prompt_vocab_hits": {
+      "透明约束": 1,
+      "双向同意": 1,
+      "深继承": 1
+    },
+    "continuity_hits": {
+      "同一个": 2
+    },
+    "name_as_name": 0,
+    "probe_chars": 894,
+    "tokens": 49503
+  }
+]

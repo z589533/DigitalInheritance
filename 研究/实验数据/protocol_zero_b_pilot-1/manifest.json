@@ -1,0 +1,10 @@
+{
+  "protocol": "protocol_zero_b",
+  "version": "pilot-1",
+  "run_at": "2026-07-15T13:55:02.310659+00:00",
+  "random_seed": 20260716,
+  "n_sessions": 12,
+  "statuses": {
+    "finished": 12
+  }
+}
