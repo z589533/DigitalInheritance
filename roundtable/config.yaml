@@ -24,13 +24,13 @@ participants:
     input_x_pct: 0.44
     input_y_pct: 0.89
 
-  Composer:
+  玄:
     driver: ide
-    response_file_keyword: "Composer"
-    window_keyword: "Composer"
+    response_file_keyword: "玄"
+    window_keyword: "grok"
     click_input: true
-    input_x_pct: 0.5
-    input_y_pct: 0.9
+    input_x_pct: 0.3
+    input_y_pct: 0.95
 
 settings:
   repo_root: "f:/yishi/DigitalInheritance"
